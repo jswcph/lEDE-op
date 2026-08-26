@@ -233,20 +233,20 @@ jobs:
 
           if [ "${{ inputs.device }}" = "mf" ]; then
             cat > build-config/device.config << 'EOF'
-CONFIG_TARGET_airoha=y
-CONFIG_TARGET_airoha_an7583=y
-CONFIG_TARGET_MULTI_PROFILE=n
-CONFIG_TARGET_airoha_an7583_DEVICE_nokia_xg-040g-mf-ubi=y
-EOF
+          CONFIG_TARGET_airoha=y
+          CONFIG_TARGET_airoha_an7583=y
+          CONFIG_TARGET_MULTI_PROFILE=n
+          CONFIG_TARGET_airoha_an7583_DEVICE_nokia_xg-040g-mf-ubi=y
+          EOF
           fi
 
           if [ "${{ inputs.device }}" = "md" ]; then
             cat > build-config/device.config << 'EOF'
-CONFIG_TARGET_airoha=y
-CONFIG_TARGET_airoha_an7581=y
-CONFIG_TARGET_MULTI_PROFILE=n
-CONFIG_TARGET_airoha_an7581_DEVICE_nokia_xg-040g-md-ubi=y
-EOF
+          CONFIG_TARGET_airoha=y
+          CONFIG_TARGET_airoha_an7581=y
+          CONFIG_TARGET_MULTI_PROFILE=n
+          CONFIG_TARGET_airoha_an7581_DEVICE_nokia_xg-040g-md-ubi=y
+          EOF
           fi
 
           cat build-config/device.config
@@ -260,61 +260,61 @@ EOF
           rm -f .config
 
           cat > .config << 'EOF'
-#
-# Target
-#
-CONFIG_TARGET_ROOTFS_SQUASHFS=y
+          #
+          # Target
+          #
+          CONFIG_TARGET_ROOTFS_SQUASHFS=y
 
-#
-# LuCI
-#
-CONFIG_PACKAGE_luci=y
-CONFIG_PACKAGE_luci-ssl=y
+          #
+          # LuCI
+          #
+          CONFIG_PACKAGE_luci=y
+          CONFIG_PACKAGE_luci-ssl=y
 
-#
-# Web server
-#
-CONFIG_PACKAGE_uhttpd=y
-CONFIG_PACKAGE_uhttpd-mod-ubus=y
+          #
+          # Web server
+          #
+          CONFIG_PACKAGE_uhttpd=y
+          CONFIG_PACKAGE_uhttpd-mod-ubus=y
 
-#
-# Network tools
-#
-CONFIG_PACKAGE_curl=y
-CONFIG_PACKAGE_wget-ssl=y
+          #
+          # Network tools
+          #
+          CONFIG_PACKAGE_curl=y
+          CONFIG_PACKAGE_wget-ssl=y
 
-#
-# Certificates
-#
-CONFIG_PACKAGE_ca-bundle=y
-CONFIG_PACKAGE_ca-certificates=y
+          #
+          # Certificates
+          #
+          CONFIG_PACKAGE_ca-bundle=y
+          CONFIG_PACKAGE_ca-certificates=y
 
-#
-# Firewall
-#
-CONFIG_PACKAGE_firewall4=y
-CONFIG_PACKAGE_nftables=y
+          #
+          # Firewall
+          #
+          CONFIG_PACKAGE_firewall4=y
+          CONFIG_PACKAGE_nftables=y
 
-#
-# IPv6
-#
-CONFIG_PACKAGE_ipv6helper=y
+          #
+          # IPv6
+          #
+          CONFIG_PACKAGE_ipv6helper=y
 
-#
-# Useful tools
-#
-CONFIG_PACKAGE_htop=y
-CONFIG_PACKAGE_nano=y
-CONFIG_PACKAGE_tcpdump=y
+          #
+          # Useful tools
+          #
+          CONFIG_PACKAGE_htop=y
+          CONFIG_PACKAGE_nano=y
+          CONFIG_PACKAGE_tcpdump=y
 
-#
-# Chinese language
-#
-CONFIG_PACKAGE_luci-i18n-base-zh-cn=y
-CONFIG_PACKAGE_luci-i18n-firewall-zh-cn=y
-CONFIG_PACKAGE_luci-i18n-system-zh-cn=y
-CONFIG_PACKAGE_luci-i18n-network-zh-cn=y
-EOF
+          #
+          # Chinese language
+          #
+          CONFIG_PACKAGE_luci-i18n-base-zh-cn=y
+          CONFIG_PACKAGE_luci-i18n-firewall-zh-cn=y
+          CONFIG_PACKAGE_luci-i18n-system-zh-cn=y
+          CONFIG_PACKAGE_luci-i18n-network-zh-cn=y
+          EOF
 
           cat build-config/device.config >> .config
 
@@ -329,308 +329,3 @@ EOF
 
           add_pkg() {
             PKG="$1"
-            if grep -R -E "Package/[A-Za-z0-9_.+-]*${PKG}|PKGARCH.*${PKG}" package feeds >/dev/null 2>&1; then
-              echo "CONFIG_PACKAGE_${PKG}=y" >> "$CONFIG_FILE"
-              echo "[OK] ${PKG}"
-            else
-              echo "[SKIP] ${PKG} not found"
-            fi
-          }
-
-          # Argon
-          if [ "${{ inputs.argon }}" = "true" ]; then
-            add_pkg "luci-theme-argon"
-          fi
-
-          # PassWall + 核心
-          if [ "${{ inputs.passwall }}" = "true" ]; then
-            add_pkg "luci-app-passwall"
-            add_pkg "xray-core"
-            add_pkg "sing-box"
-            add_pkg "geoview"
-            add_pkg "v2ray-geoip"
-            add_pkg "v2ray-geosite"
-          fi
-
-          # OpenClash（Meta 核心）
-          if [ "${{ inputs.openclash }}" = "true" ]; then
-            add_pkg "luci-app-openclash"
-            # Meta 核心会在后面下载脚本中处理
-          fi
-
-          # Lucky
-          if [ "${{ inputs.lucky }}" = "true" ]; then
-            add_pkg "luci-app-lucky"
-          fi
-
-          # USB 2.0 / 3.0 + 自动挂载
-          if [ "${{ inputs.usb }}" = "true" ]; then
-            add_pkg "kmod-usb-core"
-            add_pkg "kmod-usb2"
-            add_pkg "kmod-usb3"
-            add_pkg "kmod-usb-storage"
-            add_pkg "kmod-usb-storage-uas"
-            add_pkg "kmod-usb-ledtrig-usbport"
-            add_pkg "block-mount"
-            add_pkg "blockd"
-            add_pkg "mount-utils"
-            add_pkg "kmod-fs-ext4"
-            add_pkg "kmod-fs-vfat"
-            add_pkg "kmod-fs-exfat"
-            add_pkg "kmod-fs-ntfs"
-            add_pkg "e2fsprogs"
-            add_pkg "fdisk"
-            add_pkg "lsblk"
-            add_pkg "ntfs-3g"
-            add_pkg "dosfstools"
-          fi
-
-          # Tailscale
-          if [ "${{ inputs.tailscale }}" = "true" ]; then
-            add_pkg "tailscale"
-            add_pkg "luci-app-tailscale" || true
-          fi
-
-          # 额外软件包
-          EXTRA="${{ inputs.extra_packages }}"
-          if [ -n "$EXTRA" ]; then
-            for PKG in $EXTRA; do
-              add_pkg "$PKG"
-            done
-          fi
-
-      # ==========================================================
-      # 13. 设置默认主机名 + LAN IP + 网络接口
-      # ==========================================================
-      - name: Configure default router settings
-        working-directory: lede
-        run: |
-          mkdir -p files/etc/uci-defaults
-
-          cat > files/etc/uci-defaults/99-custom-settings << EOF
-#!/bin/sh
-
-# 主机名
-uci set system.@system[0].hostname='${{ inputs.hostname }}'
-
-# LAN 地址
-uci set network.lan.ipaddr='${{ inputs.lan_ip }}'
-uci set network.lan.netmask='255.255.255.0'
-
-# 强制设置网络接口：
-# lan1 (2.5G) = WAN
-# lan2 lan3 lan4 = LAN
-# 兼容官方/Lean 已有 board.d 配置，若已正确则覆盖也无害
-
-uci -q delete network.@device[0]
-uci -q delete network.lan
-uci -q delete network.wan
-uci -q delete network.wan6
-
-# 创建 br-lan（lan2 lan3 lan4）
-uci add network device
-uci set network.@device[-1].name='br-lan'
-uci set network.@device[-1].type='bridge'
-uci add_list network.@device[-1].ports='lan2'
-uci add_list network.@device[-1].ports='lan3'
-uci add_list network.@device[-1].ports='lan4'
-
-# LAN 接口
-uci set network.lan=interface
-uci set network.lan.device='br-lan'
-uci set network.lan.proto='static'
-uci set network.lan.ipaddr='${{ inputs.lan_ip }}'
-uci set network.lan.netmask='255.255.255.0'
-uci set network.lan.ip6assign='60'
-
-# WAN 接口（lan1 = 2.5G）
-uci set network.wan=interface
-uci set network.wan.device='lan1'
-uci set network.wan.proto='dhcp'
-
-uci set network.wan6=interface
-uci set network.wan6.device='lan1'
-uci set network.wan6.proto='dhcpv6'
-
-uci commit system
-uci commit network
-
-exit 0
-EOF
-
-          chmod +x files/etc/uci-defaults/99-custom-settings
-
-      # ==========================================================
-      # 14. 设置 Argon 为默认主题
-      # ==========================================================
-      - name: Set Argon as default theme
-        if: inputs.argon == true
-        working-directory: lede
-        run: |
-          mkdir -p files/etc/uci-defaults
-
-          cat > files/etc/uci-defaults/98-argon-theme << 'EOF'
-#!/bin/sh
-if uci show luci >/dev/null 2>&1; then
-  uci set luci.main.mediaurlbase='/luci-static/argon'
-  uci commit luci
-fi
-exit 0
-EOF
-
-          chmod +x files/etc/uci-defaults/98-argon-theme
-
-      # ==========================================================
-      # 15. 下载 OpenClash Meta 核心（编译前预置）
-      # ==========================================================
-      - name: Prepare OpenClash Meta core
-        if: inputs.openclash == true
-        working-directory: lede
-        run: |
-          mkdir -p files/etc/openclash/core
-          # 编译阶段不强制下载，启动后由 OpenClash 自己更新 Meta 核心更稳妥
-          # 这里只预创建目录，避免首次运行报错
-          echo "OpenClash core directory prepared."
-
-      # ==========================================================
-      # 16. 生成最终配置
-      # ==========================================================
-      - name: Generate final config
-        working-directory: lede
-        run: |
-          make defconfig
-
-      # ==========================================================
-      # 17. 验证最终目标
-      # ==========================================================
-      - name: Verify final target
-        working-directory: lede
-        run: |
-          echo "=========================================="
-          echo "FINAL TARGET CONFIG"
-          echo "=========================================="
-          grep "^CONFIG_TARGET" .config || true
-
-          echo
-          echo "=========================================="
-          echo "NOKIA DEVICE CONFIG"
-          echo "=========================================="
-          if [ "${{ inputs.device }}" = "mf" ]; then
-            grep "nokia_xg-040g-mf-ubi" .config || true
-          fi
-          if [ "${{ inputs.device }}" = "md" ]; then
-            grep "nokia_xg-040g-md-ubi" .config || true
-          fi
-
-      # ==========================================================
-      # 18. 下载源码
-      # ==========================================================
-      - name: Download package sources
-        working-directory: lede
-        run: |
-          make download -j$(nproc) V=s
-
-      # ==========================================================
-      # 19. 编译固件
-      # ==========================================================
-      - name: Build firmware
-        working-directory: lede
-        run: |
-          echo "=========================================="
-          echo "START BUILD"
-          echo "=========================================="
-          make -j$(nproc) V=s
-
-      # ==========================================================
-      # 20. 查找编译产物
-      # ==========================================================
-      - name: Find firmware
-        working-directory: lede
-        run: |
-          echo "=========================================="
-          echo "BUILD OUTPUT"
-          echo "=========================================="
-          find bin/targets -type f -maxdepth 5 -printf "%p\n" | sort
-
-      # ==========================================================
-      # 21. 整理 Release 文件
-      # ==========================================================
-      - name: Prepare release files
-        working-directory: lede
-        run: |
-          rm -rf release
-          mkdir -p release
-
-          find bin/targets -type f \( \
-            -name "*.itb" -o -name "*.bin" -o -name "*.img" \
-            -o -name "*.ubi" -o -name "*.tar" -o -name "*.gz" \
-            -o -name "*.fip" \
-          \) -exec cp {} release/ \;
-
-          cp .config release/config.buildinfo
-
-          echo "Nokia XG-040G-${{ inputs.device }} UBI" > release/device.txt
-          echo "${{ inputs.hostname }}" > release/hostname.txt
-          echo "${{ inputs.lan_ip }}" > release/lan-ip.txt
-
-          cd release
-          sha256sum * > sha256sums.txt || true
-
-          echo "=========================================="
-          echo "RELEASE FILES"
-          echo "=========================================="
-          ls -lah
-
-      # ==========================================================
-      # 22. 上传 Artifact
-      # ==========================================================
-      - name: Upload firmware artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: Nokia-XG-040G-${{ inputs.device }}-UBI
-          path: lede/release/
-          retention-days: 30
-
-      # ==========================================================
-      # 23. 生成 Release Tag
-      # ==========================================================
-      - name: Generate release tag
-        if: inputs.upload_release == true
-        id: release
-        run: |
-          TAG="nokia-xg040g-${{ inputs.device }}-ubi-$(date +'%Y%m%d-%H%M%S')"
-          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
-
-      # ==========================================================
-      # 24. 创建 GitHub Release
-      # ==========================================================
-      - name: Create GitHub Release
-        if: inputs.upload_release == true
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ steps.release.outputs.tag }}
-          name: Nokia XG-040G-${{ inputs.device }} UBI
-          body: |
-            ## Nokia XG-040G-${{ inputs.device }} UBI
-
-            ### 编译信息
-            - 设备: Nokia XG-040G-${{ inputs.device }}
-            - 分区方案: UBI
-            - 主机名: ${{ inputs.hostname }}
-            - 管理地址: ${{ inputs.lan_ip }}
-            - 网络: lan1(2.5G)=WAN，lan2/3/4=LAN
-
-            ### 默认插件
-            - Argon 主题
-            - PassWall（含核心）
-            - OpenClash（Meta 核心）
-            - Lucky
-            - USB 2.0/3.0 + 自动挂载
-            - Tailscale
-
-            ### 使用说明
-            1. 刷机请参考官方 OpenWrt 文档中的 UBI 安装方法
-            2. 首次启动后请及时修改密码
-            3. OpenClash Meta 核心建议在后台首次运行时自动下载
-          files: |
-            lede/release/*
