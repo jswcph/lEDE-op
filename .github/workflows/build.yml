@@ -1,25 +1,17 @@
-name: OpenWrt Cloud Build
+name: Nokia XG-040G UBI Cloud Build
 
 on:
   workflow_dispatch:
     inputs:
 
       device:
-        description: "选择设备型号"
+        description: "选择 Nokia XG-040G 型号"
         required: true
         type: choice
-        default: nokia-xg040-mf
+        default: mf
         options:
-          - nokia-xg040-mf
-          - nokia-xg040-md
-
-      branch:
-        description: "LEDE 分支"
-        required: true
-        type: choice
-        default: master
-        options:
-          - master
+          - mf
+          - md
 
       hostname:
         description: "路由器名称"
@@ -33,61 +25,50 @@ on:
         type: string
         default: "192.168.6.1"
 
-      wan_port:
-        description: "WAN 端口"
-        required: true
-        type: choice
-        default: lan1
-        options:
-          - lan1
-          - lan2
-          - lan3
-          - lan4
-
       argon:
-        description: "Argon 主题"
+        description: "集成 Argon 主题"
         required: true
         type: boolean
         default: true
 
       passwall:
-        description: "PassWall"
+        description: "集成 PassWall"
         required: true
         type: boolean
         default: true
 
       xray:
-        description: "Xray"
+        description: "集成 Xray"
         required: true
         type: boolean
         default: true
 
       singbox:
-        description: "sing-box"
+        description: "集成 sing-box"
         required: true
         type: boolean
         default: true
 
       openclash:
-        description: "OpenClash"
+        description: "集成 OpenClash"
         required: true
         type: boolean
         default: true
 
       mihomo:
-        description: "Mihomo / Meta 核心"
+        description: "集成 Mihomo"
         required: true
         type: boolean
         default: true
 
       lucky:
-        description: "Lucky"
+        description: "集成 Lucky"
         required: true
         type: boolean
         default: true
 
       filemanager:
-        description: "文件管理"
+        description: "集成文件管理"
         required: true
         type: boolean
         default: true
@@ -99,22 +80,29 @@ on:
         default: true
 
       wireguard:
-        description: "WireGuard"
+        description: "集成 WireGuard"
         required: true
         type: boolean
         default: false
 
       openvpn:
-        description: "OpenVPN"
+        description: "集成 OpenVPN"
         required: true
         type: boolean
         default: false
 
       extra_packages:
-        description: "额外软件包，空格分隔"
+        description: "额外软件包，使用空格分隔，例如 tcpdump htop nano"
         required: false
         type: string
         default: ""
+
+      upload_release:
+        description: "自动创建 GitHub Release"
+        required: true
+        type: boolean
+        default: true
+
 
 env:
   TZ: Asia/Shanghai
@@ -122,448 +110,922 @@ env:
 jobs:
 
   build:
-    name: Build ${{ inputs.device }}
+
+    name: Build Nokia XG-040G-${{ inputs.device }}-UBI
+
     runs-on: ubuntu-24.04
 
     steps:
 
-      # ==========================================
-      # 1. 清理 GitHub Runner
-      # ==========================================
+      # ==========================================================
+      # 1. 清理 Runner 空间
+      # ==========================================================
 
       - name: Free disk space
         run: |
+
           sudo rm -rf /usr/local/lib/android
           sudo rm -rf /usr/share/dotnet
           sudo rm -rf /opt/ghc
           sudo rm -rf /usr/local/share/powershell
           sudo rm -rf /usr/local/share/chromium
+
           sudo apt-get clean
 
-      # ==========================================
-      # 2. 下载 LEDE
-      # ==========================================
+          df -h
 
-      - name: Clone LEDE
+
+      # ==========================================================
+      # 2. 安装编译依赖
+      # ==========================================================
+
+      - name: Install build dependencies
         run: |
-          git clone --depth=1 \
-            --branch "${{ inputs.branch }}" \
-            https://github.com/coolsnowwolf/lede.git \
-            lede
 
-      # ==========================================
-      # 3. 安装编译依赖
-      # ==========================================
-
-      - name: Install dependencies
-        run: |
           sudo apt-get update
 
           sudo apt-get install -y \
-            build-essential \
-            clang \
-            flex \
+            ack \
+            antlr3 \
+            asciidoc \
+            autoconf \
+            automake \
+            autopoint \
+            binutils \
             bison \
+            build-essential \
+            bzip2 \
+            ccache \
+            clang \
+            cmake \
+            cpio \
+            curl \
+            device-tree-compiler \
+            flex \
             gawk \
+            gcc-multilib \
+            g++-multilib \
             gettext \
             git \
-            libncurses-dev \
+            gperf \
+            haveged \
+            help2man \
+            intltool \
+            libelf-dev \
+            libfuse-dev \
+            libglib2.0-dev \
+            libgmp3-dev \
+            libltdl-dev \
+            libmpc-dev \
+            libmpfr-dev \
+            libncurses5-dev \
+            libncursesw5-dev \
+            libpython3-dev \
+            libreadline-dev \
             libssl-dev \
+            libtool \
+            llvm \
+            lrzsz \
+            mkisofs \
+            nano \
+            ninja-build \
+            p7zip \
+            p7zip-full \
+            patch \
+            pkgconf \
             python3 \
             python3-pip \
-            python3-setuptools \
             python3-pyelftools \
-            rsync \
-            unzip \
-            zlib1g-dev \
-            file \
-            wget \
-            curl \
-            jq \
-            rename \
-            subversion \
-            xsltproc \
-            swig \
-            time \
-            upx-ucl \
-            libelf-dev \
-            libxml-parser-perl \
-            libyaml-perl \
-            device-tree-compiler \
+            python3-setuptools \
             qemu-utils \
-            p7zip-full
+            rsync \
+            scons \
+            squashfs-tools \
+            subversion \
+            swig \
+            texinfo \
+            unzip \
+            upx-ucl \
+            vim \
+            wget \
+            xmlto \
+            xxd \
+            zlib1g-dev
 
-      # ==========================================
-      # 4. 更新 feeds
-      # ==========================================
+
+      # ==========================================================
+      # 3. 下载 LEDE
+      # ==========================================================
+
+      - name: Clone LEDE
+        run: |
+
+          git clone \
+            --depth=1 \
+            https://github.com/coolsnowwolf/lede.git \
+            lede
+
+          cd lede
+
+          echo "LEDE commit:"
+          git rev-parse HEAD
+
+          echo "LEDE branch:"
+          git branch --show-current
+
+
+      # ==========================================================
+      # 4. 检查 Nokia 设备是否存在
+      # ==========================================================
+
+      - name: Verify Nokia device profiles
+        working-directory: lede
+        run: |
+
+          echo "=========================================="
+          echo "Checking Nokia XG-040G device profiles"
+          echo "=========================================="
+
+          echo
+          echo "AN7581:"
+          grep -R \
+            "nokia_xg-040g-md-ubi" \
+            target/linux/airoha \
+            || true
+
+          echo
+          echo "AN7583:"
+          grep -R \
+            "nokia_xg-040g-mf-ubi" \
+            target/linux/airoha \
+            || true
+
+          echo
+
+          if [ "${{ inputs.device }}" = "md" ]; then
+
+            if ! grep -R \
+              "nokia_xg-040g-md-ubi" \
+              target/linux/airoha >/dev/null 2>&1; then
+
+              echo "ERROR:"
+              echo "Nokia XG-040G-MD UBI profile was not found."
+              exit 1
+
+            fi
+
+          fi
+
+          if [ "${{ inputs.device }}" = "mf" ]; then
+
+            if ! grep -R \
+              "nokia_xg-040g-mf-ubi" \
+              target/linux/airoha >/dev/null 2>&1; then
+
+              echo "ERROR:"
+              echo "Nokia XG-040G-MF UBI profile was not found."
+              exit 1
+
+            fi
+
+          fi
+
+
+      # ==========================================================
+      # 5. 添加 Argon
+      # ==========================================================
+
+      - name: Add Argon theme
+        if: inputs.argon == true
+        working-directory: lede
+        run: |
+
+          mkdir -p package/argon
+
+          git clone \
+            --depth=1 \
+            https://github.com/jerrykuku/luci-theme-argon.git \
+            package/argon/luci-theme-argon
+
+          echo "Argon added."
+
+
+      # ==========================================================
+      # 6. 添加 OpenClash
+      # ==========================================================
+
+      - name: Add OpenClash
+        if: inputs.openclash == true
+        working-directory: lede
+        run: |
+
+          mkdir -p package/openclash
+
+          git clone \
+            --depth=1 \
+            https://github.com/vernesong/OpenClash.git \
+            /tmp/OpenClash
+
+          cp -rf \
+            /tmp/OpenClash/luci-app-openclash \
+            package/openclash/
+
+          rm -rf /tmp/OpenClash
+
+          echo "OpenClash added."
+
+
+      # ==========================================================
+      # 7. 更新 LEDE feeds
+      # ==========================================================
 
       - name: Update feeds
         working-directory: lede
         run: |
+
+          ./scripts/feeds clean
+
           ./scripts/feeds update -a
+
           ./scripts/feeds install -a
 
-      # ==========================================
-      # 5. 复制自定义文件
-      # ==========================================
 
-      - name: Copy custom files
-        run: |
-          cp -rf configs/common.config \
-            lede/common.config
+      # ==========================================================
+      # 8. 添加第三方软件包源码
+      # ==========================================================
 
-          cp -rf configs/${{ inputs.device }}.config \
-            lede/device.config
-
-          mkdir -p lede/files/etc/uci-defaults
-
-          cp -f files/etc/uci-defaults/99-custom-settings \
-            lede/files/etc/uci-defaults/99-custom-settings
-
-      # ==========================================
-      # 6. 执行 DIY
-      # ==========================================
-
-      - name: DIY configuration
+      - name: Add optional packages
         working-directory: lede
         run: |
-          chmod +x ../scripts/diy.sh
-          ../scripts/diy.sh
 
-      # ==========================================
-      # 7. 合并基础配置
-      # ==========================================
+          mkdir -p package/custom
 
-      - name: Generate base config
+
+          # ------------------------------------------------------
+          # PassWall
+          # ------------------------------------------------------
+
+          if [ "${{ inputs.passwall }}" = "true" ]; then
+
+            git clone \
+              --depth=1 \
+              https://github.com/xiaorouji/openwrt-passwall.git \
+              package/custom/passwall
+
+          fi
+
+
+          # ------------------------------------------------------
+          # Lucky
+          # ------------------------------------------------------
+
+          if [ "${{ inputs.lucky }}" = "true" ]; then
+
+            git clone \
+              --depth=1 \
+              https://github.com/gdy666/luci-app-lucky.git \
+              package/custom/luci-app-lucky
+
+          fi
+
+
+          echo "Optional package source completed."
+
+
+      # ==========================================================
+      # 9. 重新安装 feeds
+      # ==========================================================
+
+      - name: Install feeds
         working-directory: lede
         run: |
-          cat common.config > .config
-          cat device.config >> .config
 
-      # ==========================================
-      # 8. 添加用户选择的软件包
-      # ==========================================
+          ./scripts/feeds update -a
 
-      - name: Configure packages
+          ./scripts/feeds install -a
+
+
+      # ==========================================================
+      # 10. 找到设备配置
+      # ==========================================================
+
+      - name: Prepare device configuration
         working-directory: lede
-        env:
-          PASSWALL: ${{ inputs.passwall }}
-          XRAY: ${{ inputs.xray }}
-          SINGBOX: ${{ inputs.singbox }}
-          OPENCLASH: ${{ inputs.openclash }}
-          MIHOMO: ${{ inputs.mihomo }}
-          LUCKY: ${{ inputs.lucky }}
-          FILEMANAGER: ${{ inputs.filemanager }}
-          USB: ${{ inputs.usb }}
-          WIREGUARD: ${{ inputs.wireguard }}
-          OPENVPN: ${{ inputs.openvpn }}
-          EXTRA: ${{ inputs.extra_packages }}
         run: |
 
-          echo "" >> .config
-          echo "# =====================================" >> .config
-          echo "# Custom Packages" >> .config
-          echo "# =====================================" >> .config
+          mkdir -p build-config
 
-          # ------------------------------
+
+          if [ "${{ inputs.device }}" = "mf" ]; then
+
+            cat > build-config/device.config << 'EOF'
+
+          CONFIG_TARGET_airoha=y
+          CONFIG_TARGET_airoha_an7583=y
+          CONFIG_TARGET_DEVICE_airoha_an7583_DEVICE_nokia_xg-040g-mf-ubi=y
+
+          EOF
+
+          fi
+
+
+          if [ "${{ inputs.device }}" = "md" ]; then
+
+            cat > build-config/device.config << 'EOF'
+
+          CONFIG_TARGET_airoha=y
+          CONFIG_TARGET_airoha_an7581=y
+          CONFIG_TARGET_DEVICE_airoha_an7581_DEVICE_nokia_xg-040g-md-ubi=y
+
+          EOF
+
+          fi
+
+
+          cat build-config/device.config
+
+
+      # ==========================================================
+      # 11. 创建基础 .config
+      # ==========================================================
+
+      - name: Create base configuration
+        working-directory: lede
+        run: |
+
+          rm -f .config
+
+          cat > .config << 'EOF'
+
+          #
+          # Target
+          #
+
+          CONFIG_TARGET_ROOTFS_SQUASHFS=y
+
+          #
+          # LuCI
+          #
+
+          CONFIG_PACKAGE_luci=y
+          CONFIG_PACKAGE_luci-ssl=y
+
+          #
+          # Web server
+          #
+
+          CONFIG_PACKAGE_uhttpd=y
+          CONFIG_PACKAGE_uhttpd-mod-ubus=y
+
+          #
+          # Network
+          #
+
+          CONFIG_PACKAGE_curl=y
+          CONFIG_PACKAGE_wget-ssl=y
+
+          #
+          # Certificates
+          #
+
+          CONFIG_PACKAGE_ca-bundle=y
+          CONFIG_PACKAGE_ca-certificates=y
+
+          #
+          # Firewall
+          #
+
+          CONFIG_PACKAGE_firewall4=y
+          CONFIG_PACKAGE_nftables=y
+
+          #
+          # IPv6
+          #
+
+          CONFIG_PACKAGE_ipv6helper=y
+
+          #
+          # Useful tools
+          #
+
+          CONFIG_PACKAGE_htop=y
+          CONFIG_PACKAGE_nano=y
+          CONFIG_PACKAGE_tcpdump=y
+
+          #
+          # Chinese
+          #
+
+          CONFIG_PACKAGE_luci-i18n-base-zh-cn=y
+          CONFIG_PACKAGE_luci-i18n-firewall-zh-cn=y
+          CONFIG_PACKAGE_luci-i18n-system-zh-cn=y
+          CONFIG_PACKAGE_luci-i18n-network-zh-cn=y
+
+          EOF
+
+
+          cat build-config/device.config >> .config
+
+
+      # ==========================================================
+      # 12. 检查 package 是否存在的函数
+      # ==========================================================
+
+      - name: Configure optional packages
+        working-directory: lede
+        run: |
+
+          set -e
+
+          CONFIG_FILE=".config"
+
+
+          add_pkg()
+          {
+            PKG="$1"
+
+            if grep -R \
+              -E \
+              "Package/[A-Za-z0-9_.+-]*${PKG}|PKGARCH.*${PKG}" \
+              package feeds \
+              >/dev/null 2>&1; then
+
+              echo "CONFIG_PACKAGE_${PKG}=y" >> "$CONFIG_FILE"
+
+              echo "[OK] ${PKG}"
+
+            else
+
+              echo "[SKIP] ${PKG} not found"
+
+            fi
+          }
+
+
+          # ======================================================
           # Argon
-          # ------------------------------
+          # ======================================================
 
           if [ "${{ inputs.argon }}" = "true" ]; then
-            echo "CONFIG_PACKAGE_luci-theme-argon=y" >> .config
+
+            add_pkg "luci-theme-argon"
+
           fi
 
-          # ------------------------------
+
+          # ======================================================
           # PassWall
-          # ------------------------------
+          # ======================================================
 
-          if [ "$PASSWALL" = "true" ]; then
-            echo "CONFIG_PACKAGE_luci-app-passwall=y" >> .config
+          if [ "${{ inputs.passwall }}" = "true" ]; then
+
+            add_pkg "luci-app-passwall"
+
           fi
 
-          # ------------------------------
+
+          # ======================================================
           # Xray
-          # ------------------------------
+          # ======================================================
 
-          if [ "$XRAY" = "true" ]; then
-            echo "CONFIG_PACKAGE_xray-core=y" >> .config
+          if [ "${{ inputs.xray }}" = "true" ]; then
+
+            add_pkg "xray-core"
+
           fi
 
-          # ------------------------------
+
+          # ======================================================
           # sing-box
-          # ------------------------------
+          # ======================================================
 
-          if [ "$SINGBOX" = "true" ]; then
-            echo "CONFIG_PACKAGE_sing-box=y" >> .config
+          if [ "${{ inputs.singbox }}" = "true" ]; then
+
+            add_pkg "sing-box"
+
           fi
 
-          # ------------------------------
+
+          # ======================================================
           # OpenClash
-          # ------------------------------
+          # ======================================================
 
-          if [ "$OPENCLASH" = "true" ]; then
-            echo "CONFIG_PACKAGE_luci-app-openclash=y" >> .config
+          if [ "${{ inputs.openclash }}" = "true" ]; then
+
+            add_pkg "luci-app-openclash"
+
           fi
 
-          # ------------------------------
+
+          # ======================================================
           # Mihomo
-          # ------------------------------
+          # ======================================================
 
-          if [ "$MIHOMO" = "true" ]; then
-            echo "CONFIG_PACKAGE_mihomo=y" >> .config
+          if [ "${{ inputs.mihomo }}" = "true" ]; then
+
+            add_pkg "mihomo"
+
           fi
 
-          # ------------------------------
+
+          # ======================================================
           # Lucky
-          # ------------------------------
+          # ======================================================
 
-          if [ "$LUCKY" = "true" ]; then
-            echo "CONFIG_PACKAGE_luci-app-lucky=y" >> .config
+          if [ "${{ inputs.lucky }}" = "true" ]; then
+
+            add_pkg "luci-app-lucky"
+
           fi
 
-          # ------------------------------
-          # 文件管理
-          # ------------------------------
 
-          if [ "$FILEMANAGER" = "true" ]; then
-            echo "CONFIG_PACKAGE_luci-app-filemanager=y" >> .config
-          fi
-
-          # ------------------------------
+          # ======================================================
           # USB
-          # ------------------------------
+          # ======================================================
 
-          if [ "$USB" = "true" ]; then
+          if [ "${{ inputs.usb }}" = "true" ]; then
 
-            cat >> .config << 'EOF'
+            add_pkg "kmod-usb-core"
+            add_pkg "kmod-usb2"
+            add_pkg "kmod-usb3"
 
-          CONFIG_PACKAGE_kmod-usb-core=y
-          CONFIG_PACKAGE_kmod-usb2=y
-          CONFIG_PACKAGE_kmod-usb3=y
+            add_pkg "kmod-usb-ledtrig-usbport"
 
-          CONFIG_PACKAGE_block-mount=y
-          CONFIG_PACKAGE_mount-utils=y
+            add_pkg "block-mount"
+            add_pkg "mount-utils"
 
-          CONFIG_PACKAGE_kmod-fs-ext4=y
-          CONFIG_PACKAGE_kmod-fs-vfat=y
-          CONFIG_PACKAGE_kmod-fs-exfat=y
+            add_pkg "kmod-fs-ext4"
+            add_pkg "kmod-fs-vfat"
+            add_pkg "kmod-fs-exfat"
 
-          CONFIG_PACKAGE_e2fsprogs=y
-          CONFIG_PACKAGE_fdisk=y
-          CONFIG_PACKAGE_lsblk=y
-
-          EOF
+            add_pkg "e2fsprogs"
+            add_pkg "fdisk"
+            add_pkg "lsblk"
 
           fi
 
-          # ------------------------------
+
+          # ======================================================
           # WireGuard
-          # ------------------------------
+          # ======================================================
 
-          if [ "$WIREGUARD" = "true" ]; then
+          if [ "${{ inputs.wireguard }}" = "true" ]; then
 
-            cat >> .config << 'EOF'
-
-          CONFIG_PACKAGE_luci-proto-wireguard=y
-          CONFIG_PACKAGE_wireguard-tools=y
-          CONFIG_PACKAGE_kmod-wireguard=y
-
-          EOF
+            add_pkg "kmod-wireguard"
+            add_pkg "wireguard-tools"
+            add_pkg "luci-proto-wireguard"
 
           fi
 
-          # ------------------------------
+
+          # ======================================================
           # OpenVPN
-          # ------------------------------
+          # ======================================================
 
-          if [ "$OPENVPN" = "true" ]; then
+          if [ "${{ inputs.openvpn }}" = "true" ]; then
 
-            cat >> .config << 'EOF'
-
-          CONFIG_PACKAGE_openvpn-openssl=y
-          CONFIG_PACKAGE_luci-app-openvpn=y
-
-          EOF
+            add_pkg "openvpn-openssl"
+            add_pkg "luci-app-openvpn"
 
           fi
 
-          # ------------------------------
-          # 额外软件包
-          # ------------------------------
+
+          # ======================================================
+          # Extra packages
+          # ======================================================
+
+          EXTRA="${{ inputs.extra_packages }}"
 
           if [ -n "$EXTRA" ]; then
 
-            for pkg in $EXTRA; do
-              echo "CONFIG_PACKAGE_${pkg}=y" >> .config
+            for PKG in $EXTRA; do
+
+              add_pkg "$PKG"
+
             done
 
           fi
 
-      # ==========================================
-      # 9. 写入用户自定义参数
-      # ==========================================
 
-      - name: Configure router settings
+      # ==========================================================
+      # 13. 设置默认路由器参数
+      # ==========================================================
+
+      - name: Configure default router settings
         working-directory: lede
         run: |
 
           mkdir -p files/etc/uci-defaults
 
-          cat > files/etc/uci-defaults/99-custom-settings << EOF
+
+          cat > files/etc/uci-defaults/99-custom-settings << 'EOF'
           #!/bin/sh
+
+          #
+          # Router hostname
+          #
 
           uci set system.@system[0].hostname='${{ inputs.hostname }}'
 
+
+          #
+          # LAN address
+          #
+
           uci set network.lan.ipaddr='${{ inputs.lan_ip }}'
 
-          uci set network.wan.device='${{ inputs.wan_port }}'
+
+          #
+          # Commit
+          #
 
           uci commit system
           uci commit network
 
+
           exit 0
           EOF
 
-          chmod +x files/etc/uci-defaults/99-custom-settings
 
-      # ==========================================
-      # 10. 生成最终 config
-      # ==========================================
+          chmod +x \
+            files/etc/uci-defaults/99-custom-settings
 
-      - name: Generate defconfig
+
+      # ==========================================================
+      # 14. 设置默认 Argon
+      # ==========================================================
+
+      - name: Set Argon as default theme
+        if: inputs.argon == true
         working-directory: lede
         run: |
+
+          mkdir -p files/etc/uci-defaults
+
+
+          cat > files/etc/uci-defaults/98-argon-theme << 'EOF'
+          #!/bin/sh
+
+          if uci show luci >/dev/null 2>&1; then
+
+            uci set luci.main.mediaurlbase='/luci-static/argon'
+
+            uci commit luci
+
+          fi
+
+          exit 0
+          EOF
+
+
+          chmod +x \
+            files/etc/uci-defaults/98-argon-theme
+
+
+      # ==========================================================
+      # 15. 生成最终配置
+      # ==========================================================
+
+      - name: Generate final config
+        working-directory: lede
+        run: |
+
           make defconfig
 
-      # ==========================================
-      # 11. 检查配置
-      # ==========================================
 
-      - name: Show build configuration
+      # ==========================================================
+      # 16. 验证 Target
+      # ==========================================================
+
+      - name: Verify final target
         working-directory: lede
         run: |
-          echo "========================================="
-          echo "Device:"
-          echo "${{ inputs.device }}"
-          echo
-          echo "Hostname:"
-          echo "${{ inputs.hostname }}"
-          echo
-          echo "LAN IP:"
-          echo "${{ inputs.lan_ip }}"
-          echo
-          echo "WAN:"
-          echo "${{ inputs.wan_port }}"
-          echo "========================================="
 
-          grep "^CONFIG_TARGET" .config | head -30
+          echo
+          echo "=========================================="
+          echo "FINAL TARGET CONFIG"
+          echo "=========================================="
 
-      # ==========================================
-      # 12. 下载源码
-      # ==========================================
+          grep "^CONFIG_TARGET" .config || true
 
-      - name: Download sources
+          echo
+          echo "=========================================="
+          echo "NOKIA DEVICE CONFIG"
+          echo "=========================================="
+
+          if [ "${{ inputs.device }}" = "mf" ]; then
+
+            grep \
+              "nokia_xg-040g-mf-ubi" \
+              .config || true
+
+          fi
+
+
+          if [ "${{ inputs.device }}" = "md" ]; then
+
+            grep \
+              "nokia_xg-040g-md-ubi" \
+              .config || true
+
+          fi
+
+
+      # ==========================================================
+      # 17. 下载源码
+      # ==========================================================
+
+      - name: Download package sources
         working-directory: lede
         run: |
-          make download -j$(nproc) V=s
 
-      # ==========================================
-      # 13. 编译
-      # ==========================================
+          make download \
+            -j$(nproc) \
+            V=s
+
+
+      # ==========================================================
+      # 18. 编译
+      # ==========================================================
 
       - name: Build firmware
         working-directory: lede
         run: |
-          make -j$(nproc) V=s
 
-      # ==========================================
-      # 14. 整理固件
-      # ==========================================
+          echo "=========================================="
+          echo "START BUILD"
+          echo "=========================================="
 
-      - name: Prepare firmware
+          make \
+            -j$(nproc) \
+            V=s
+
+
+      # ==========================================================
+      # 19. 查找固件
+      # ==========================================================
+
+      - name: Find firmware
         working-directory: lede
         run: |
 
+          echo
+          echo "=========================================="
+          echo "BUILD OUTPUT"
+          echo "=========================================="
+
+          find bin/targets \
+            -type f \
+            -maxdepth 5 \
+            -printf "%p\n" \
+            | sort
+
+
+      # ==========================================================
+      # 20. 整理输出
+      # ==========================================================
+
+      - name: Prepare release files
+        working-directory: lede
+        run: |
+
+          rm -rf release
+
           mkdir -p release
 
-          cp -rf bin/targets/*/*/* release/ 2>/dev/null || true
 
-          cp .config release/config.buildinfo
+          #
+          # Copy all firmware artifacts
+          #
 
-          echo "${{ inputs.device }}" \
+          find bin/targets \
+            -type f \
+            \( \
+              -name "*.itb" \
+              -o -name "*.bin" \
+              -o -name "*.img" \
+              -o -name "*.ubi" \
+              -o -name "*.tar" \
+              -o -name "*.gz" \
+              \) \
+            -exec cp {} release/ \;
+
+
+          #
+          # Copy config
+          #
+
+          cp .config \
+            release/config.buildinfo
+
+
+          #
+          # Device information
+          #
+
+          echo "Nokia XG-040G-${{ inputs.device }} UBI" \
             > release/device.txt
+
 
           echo "${{ inputs.hostname }}" \
             > release/hostname.txt
 
+
           echo "${{ inputs.lan_ip }}" \
             > release/lan-ip.txt
 
-          echo "${{ inputs.wan_port }}" \
-            > release/wan-port.txt
+
+          #
+          # SHA256
+          #
 
           cd release
 
-          sha256sum *.bin *.img *.itb *.gz 2>/dev/null \
-            > sha256sums.txt || true
+          sha256sum * \
+            > sha256sums.txt
 
-      # ==========================================
-      # 15. 上传 Artifact
-      # ==========================================
 
-      - name: Upload firmware
+          echo
+          echo "=========================================="
+          echo "RELEASE FILES"
+          echo "=========================================="
+
+          ls -lah
+
+
+      # ==========================================================
+      # 21. 上传 GitHub Artifact
+      # ==========================================================
+
+      - name: Upload firmware artifact
         uses: actions/upload-artifact@v4
         with:
-          name: OpenWrt-${{ inputs.device }}
+
+          name: Nokia-XG-040G-${{ inputs.device }}-UBI
+
           path: lede/release/
+
           retention-days: 30
 
-      # ==========================================
-      # 16. 创建 Release
-      # ==========================================
+
+      # ==========================================================
+      # 22. 生成 Release Tag
+      # ==========================================================
 
       - name: Generate release tag
+        if: inputs.upload_release == true
         id: release
         run: |
-          echo "tag=build-$(date +'%Y%m%d-%H%M%S')" \
+
+          TAG="nokia-xg040g-${{ inputs.device }}-ubi-$(date +'%Y%m%d-%H%M%S')"
+
+          echo "tag=${TAG}" \
             >> "$GITHUB_OUTPUT"
 
-      - name: Create Release
+
+      # ==========================================================
+      # 23. 创建 GitHub Release
+      # ==========================================================
+
+      - name: Create GitHub Release
+        if: inputs.upload_release == true
         uses: softprops/action-gh-release@v2
         with:
+
           tag_name: ${{ steps.release.outputs.tag }}
-          name: OpenWrt ${{ inputs.device }} ${{ steps.release.outputs.tag }}
+
+          name: Nokia XG-040G-${{ inputs.device }} UBI
+
           body: |
-            ## OpenWrt Cloud Build
 
-            **设备:** ${{ inputs.device }}
+            # Nokia XG-040G-${{ inputs.device }} UBI
 
-            **路由器名称:** ${{ inputs.hostname }}
+            ## Build information
 
-            **管理地址:** ${{ inputs.lan_ip }}
+            - Device: Nokia XG-040G-${{ inputs.device }}
+            - Variant: UBI
+            - Hostname: ${{ inputs.hostname }}
+            - LAN IP: ${{ inputs.lan_ip }}
 
-            **WAN:** ${{ inputs.wan_port }}
+            ## Packages
 
-            **Argon:** ${{ inputs.argon }}
+            - Argon: ${{ inputs.argon }}
+            - PassWall: ${{ inputs.passwall }}
+            - Xray: ${{ inputs.xray }}
+            - sing-box: ${{ inputs.singbox }}
+            - OpenClash: ${{ inputs.openclash }}
+            - Mihomo: ${{ inputs.mihomo }}
+            - Lucky: ${{ inputs.lucky }}
+            - File manager: ${{ inputs.filemanager }}
+            - USB: ${{ inputs.usb }}
+            - WireGuard: ${{ inputs.wireguard }}
+            - OpenVPN: ${{ inputs.openvpn }}
 
-            **PassWall:** ${{ inputs.passwall }}
+            ## Important
 
-            **Xray:** ${{ inputs.xray }}
+            This firmware is built automatically by GitHub Actions.
 
-            **sing-box:** ${{ inputs.singbox }}
+            Please verify the device model and image type before flashing.
 
-            **OpenClash:** ${{ inputs.openclash }}
-
-            **Mihomo:** ${{ inputs.mihomo }}
-
-            **USB:** ${{ inputs.usb }}
-
-            **WireGuard:** ${{ inputs.wireguard }}
-
-            **OpenVPN:** ${{ inputs.openvpn }}
-
-            ---
-
-            Build automatically by GitHub Actions.
           files: |
             lede/release/*
