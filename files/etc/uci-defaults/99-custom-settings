@@ -1,0 +1,17 @@
+#!/bin/sh
+
+# ==========================================
+# 自定义默认设置
+# ==========================================
+
+# 路由器名称
+uci set system.@system[0].hostname='OpenWrt'
+
+# LAN 默认地址
+uci set network.lan.ipaddr='192.168.6.1'
+
+# 提交
+uci commit system
+uci commit network
+
+exit 0
