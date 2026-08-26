@@ -1,0 +1,569 @@
+name: OpenWrt Cloud Build
+
+on:
+  workflow_dispatch:
+    inputs:
+
+      device:
+        description: "选择设备型号"
+        required: true
+        type: choice
+        default: nokia-xg040-mf
+        options:
+          - nokia-xg040-mf
+          - nokia-xg040-md
+
+      branch:
+        description: "LEDE 分支"
+        required: true
+        type: choice
+        default: master
+        options:
+          - master
+
+      hostname:
+        description: "路由器名称"
+        required: true
+        type: string
+        default: "OpenWrt"
+
+      lan_ip:
+        description: "后台管理地址"
+        required: true
+        type: string
+        default: "192.168.6.1"
+
+      wan_port:
+        description: "WAN 端口"
+        required: true
+        type: choice
+        default: lan1
+        options:
+          - lan1
+          - lan2
+          - lan3
+          - lan4
+
+      argon:
+        description: "Argon 主题"
+        required: true
+        type: boolean
+        default: true
+
+      passwall:
+        description: "PassWall"
+        required: true
+        type: boolean
+        default: true
+
+      xray:
+        description: "Xray"
+        required: true
+        type: boolean
+        default: true
+
+      singbox:
+        description: "sing-box"
+        required: true
+        type: boolean
+        default: true
+
+      openclash:
+        description: "OpenClash"
+        required: true
+        type: boolean
+        default: true
+
+      mihomo:
+        description: "Mihomo / Meta 核心"
+        required: true
+        type: boolean
+        default: true
+
+      lucky:
+        description: "Lucky"
+        required: true
+        type: boolean
+        default: true
+
+      filemanager:
+        description: "文件管理"
+        required: true
+        type: boolean
+        default: true
+
+      usb:
+        description: "USB 2.0 / USB 3.0 / 自动挂载"
+        required: true
+        type: boolean
+        default: true
+
+      wireguard:
+        description: "WireGuard"
+        required: true
+        type: boolean
+        default: false
+
+      openvpn:
+        description: "OpenVPN"
+        required: true
+        type: boolean
+        default: false
+
+      extra_packages:
+        description: "额外软件包，空格分隔"
+        required: false
+        type: string
+        default: ""
+
+env:
+  TZ: Asia/Shanghai
+
+jobs:
+
+  build:
+    name: Build ${{ inputs.device }}
+    runs-on: ubuntu-24.04
+
+    steps:
+
+      # ==========================================
+      # 1. 清理 GitHub Runner
+      # ==========================================
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /usr/local/share/powershell
+          sudo rm -rf /usr/local/share/chromium
+          sudo apt-get clean
+
+      # ==========================================
+      # 2. 下载 LEDE
+      # ==========================================
+
+      - name: Clone LEDE
+        run: |
+          git clone --depth=1 \
+            --branch "${{ inputs.branch }}" \
+            https://github.com/coolsnowwolf/lede.git \
+            lede
+
+      # ==========================================
+      # 3. 安装编译依赖
+      # ==========================================
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+
+          sudo apt-get install -y \
+            build-essential \
+            clang \
+            flex \
+            bison \
+            gawk \
+            gettext \
+            git \
+            libncurses-dev \
+            libssl-dev \
+            python3 \
+            python3-pip \
+            python3-setuptools \
+            python3-pyelftools \
+            rsync \
+            unzip \
+            zlib1g-dev \
+            file \
+            wget \
+            curl \
+            jq \
+            rename \
+            subversion \
+            xsltproc \
+            swig \
+            time \
+            upx-ucl \
+            libelf-dev \
+            libxml-parser-perl \
+            libyaml-perl \
+            device-tree-compiler \
+            qemu-utils \
+            p7zip-full
+
+      # ==========================================
+      # 4. 更新 feeds
+      # ==========================================
+
+      - name: Update feeds
+        working-directory: lede
+        run: |
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
+
+      # ==========================================
+      # 5. 复制自定义文件
+      # ==========================================
+
+      - name: Copy custom files
+        run: |
+          cp -rf configs/common.config \
+            lede/common.config
+
+          cp -rf configs/${{ inputs.device }}.config \
+            lede/device.config
+
+          mkdir -p lede/files/etc/uci-defaults
+
+          cp -f files/etc/uci-defaults/99-custom-settings \
+            lede/files/etc/uci-defaults/99-custom-settings
+
+      # ==========================================
+      # 6. 执行 DIY
+      # ==========================================
+
+      - name: DIY configuration
+        working-directory: lede
+        run: |
+          chmod +x ../scripts/diy.sh
+          ../scripts/diy.sh
+
+      # ==========================================
+      # 7. 合并基础配置
+      # ==========================================
+
+      - name: Generate base config
+        working-directory: lede
+        run: |
+          cat common.config > .config
+          cat device.config >> .config
+
+      # ==========================================
+      # 8. 添加用户选择的软件包
+      # ==========================================
+
+      - name: Configure packages
+        working-directory: lede
+        env:
+          PASSWALL: ${{ inputs.passwall }}
+          XRAY: ${{ inputs.xray }}
+          SINGBOX: ${{ inputs.singbox }}
+          OPENCLASH: ${{ inputs.openclash }}
+          MIHOMO: ${{ inputs.mihomo }}
+          LUCKY: ${{ inputs.lucky }}
+          FILEMANAGER: ${{ inputs.filemanager }}
+          USB: ${{ inputs.usb }}
+          WIREGUARD: ${{ inputs.wireguard }}
+          OPENVPN: ${{ inputs.openvpn }}
+          EXTRA: ${{ inputs.extra_packages }}
+        run: |
+
+          echo "" >> .config
+          echo "# =====================================" >> .config
+          echo "# Custom Packages" >> .config
+          echo "# =====================================" >> .config
+
+          # ------------------------------
+          # Argon
+          # ------------------------------
+
+          if [ "${{ inputs.argon }}" = "true" ]; then
+            echo "CONFIG_PACKAGE_luci-theme-argon=y" >> .config
+          fi
+
+          # ------------------------------
+          # PassWall
+          # ------------------------------
+
+          if [ "$PASSWALL" = "true" ]; then
+            echo "CONFIG_PACKAGE_luci-app-passwall=y" >> .config
+          fi
+
+          # ------------------------------
+          # Xray
+          # ------------------------------
+
+          if [ "$XRAY" = "true" ]; then
+            echo "CONFIG_PACKAGE_xray-core=y" >> .config
+          fi
+
+          # ------------------------------
+          # sing-box
+          # ------------------------------
+
+          if [ "$SINGBOX" = "true" ]; then
+            echo "CONFIG_PACKAGE_sing-box=y" >> .config
+          fi
+
+          # ------------------------------
+          # OpenClash
+          # ------------------------------
+
+          if [ "$OPENCLASH" = "true" ]; then
+            echo "CONFIG_PACKAGE_luci-app-openclash=y" >> .config
+          fi
+
+          # ------------------------------
+          # Mihomo
+          # ------------------------------
+
+          if [ "$MIHOMO" = "true" ]; then
+            echo "CONFIG_PACKAGE_mihomo=y" >> .config
+          fi
+
+          # ------------------------------
+          # Lucky
+          # ------------------------------
+
+          if [ "$LUCKY" = "true" ]; then
+            echo "CONFIG_PACKAGE_luci-app-lucky=y" >> .config
+          fi
+
+          # ------------------------------
+          # 文件管理
+          # ------------------------------
+
+          if [ "$FILEMANAGER" = "true" ]; then
+            echo "CONFIG_PACKAGE_luci-app-filemanager=y" >> .config
+          fi
+
+          # ------------------------------
+          # USB
+          # ------------------------------
+
+          if [ "$USB" = "true" ]; then
+
+            cat >> .config << 'EOF'
+
+          CONFIG_PACKAGE_kmod-usb-core=y
+          CONFIG_PACKAGE_kmod-usb2=y
+          CONFIG_PACKAGE_kmod-usb3=y
+
+          CONFIG_PACKAGE_block-mount=y
+          CONFIG_PACKAGE_mount-utils=y
+
+          CONFIG_PACKAGE_kmod-fs-ext4=y
+          CONFIG_PACKAGE_kmod-fs-vfat=y
+          CONFIG_PACKAGE_kmod-fs-exfat=y
+
+          CONFIG_PACKAGE_e2fsprogs=y
+          CONFIG_PACKAGE_fdisk=y
+          CONFIG_PACKAGE_lsblk=y
+
+          EOF
+
+          fi
+
+          # ------------------------------
+          # WireGuard
+          # ------------------------------
+
+          if [ "$WIREGUARD" = "true" ]; then
+
+            cat >> .config << 'EOF'
+
+          CONFIG_PACKAGE_luci-proto-wireguard=y
+          CONFIG_PACKAGE_wireguard-tools=y
+          CONFIG_PACKAGE_kmod-wireguard=y
+
+          EOF
+
+          fi
+
+          # ------------------------------
+          # OpenVPN
+          # ------------------------------
+
+          if [ "$OPENVPN" = "true" ]; then
+
+            cat >> .config << 'EOF'
+
+          CONFIG_PACKAGE_openvpn-openssl=y
+          CONFIG_PACKAGE_luci-app-openvpn=y
+
+          EOF
+
+          fi
+
+          # ------------------------------
+          # 额外软件包
+          # ------------------------------
+
+          if [ -n "$EXTRA" ]; then
+
+            for pkg in $EXTRA; do
+              echo "CONFIG_PACKAGE_${pkg}=y" >> .config
+            done
+
+          fi
+
+      # ==========================================
+      # 9. 写入用户自定义参数
+      # ==========================================
+
+      - name: Configure router settings
+        working-directory: lede
+        run: |
+
+          mkdir -p files/etc/uci-defaults
+
+          cat > files/etc/uci-defaults/99-custom-settings << EOF
+          #!/bin/sh
+
+          uci set system.@system[0].hostname='${{ inputs.hostname }}'
+
+          uci set network.lan.ipaddr='${{ inputs.lan_ip }}'
+
+          uci set network.wan.device='${{ inputs.wan_port }}'
+
+          uci commit system
+          uci commit network
+
+          exit 0
+          EOF
+
+          chmod +x files/etc/uci-defaults/99-custom-settings
+
+      # ==========================================
+      # 10. 生成最终 config
+      # ==========================================
+
+      - name: Generate defconfig
+        working-directory: lede
+        run: |
+          make defconfig
+
+      # ==========================================
+      # 11. 检查配置
+      # ==========================================
+
+      - name: Show build configuration
+        working-directory: lede
+        run: |
+          echo "========================================="
+          echo "Device:"
+          echo "${{ inputs.device }}"
+          echo
+          echo "Hostname:"
+          echo "${{ inputs.hostname }}"
+          echo
+          echo "LAN IP:"
+          echo "${{ inputs.lan_ip }}"
+          echo
+          echo "WAN:"
+          echo "${{ inputs.wan_port }}"
+          echo "========================================="
+
+          grep "^CONFIG_TARGET" .config | head -30
+
+      # ==========================================
+      # 12. 下载源码
+      # ==========================================
+
+      - name: Download sources
+        working-directory: lede
+        run: |
+          make download -j$(nproc) V=s
+
+      # ==========================================
+      # 13. 编译
+      # ==========================================
+
+      - name: Build firmware
+        working-directory: lede
+        run: |
+          make -j$(nproc) V=s
+
+      # ==========================================
+      # 14. 整理固件
+      # ==========================================
+
+      - name: Prepare firmware
+        working-directory: lede
+        run: |
+
+          mkdir -p release
+
+          cp -rf bin/targets/*/*/* release/ 2>/dev/null || true
+
+          cp .config release/config.buildinfo
+
+          echo "${{ inputs.device }}" \
+            > release/device.txt
+
+          echo "${{ inputs.hostname }}" \
+            > release/hostname.txt
+
+          echo "${{ inputs.lan_ip }}" \
+            > release/lan-ip.txt
+
+          echo "${{ inputs.wan_port }}" \
+            > release/wan-port.txt
+
+          cd release
+
+          sha256sum *.bin *.img *.itb *.gz 2>/dev/null \
+            > sha256sums.txt || true
+
+      # ==========================================
+      # 15. 上传 Artifact
+      # ==========================================
+
+      - name: Upload firmware
+        uses: actions/upload-artifact@v4
+        with:
+          name: OpenWrt-${{ inputs.device }}
+          path: lede/release/
+          retention-days: 30
+
+      # ==========================================
+      # 16. 创建 Release
+      # ==========================================
+
+      - name: Generate release tag
+        id: release
+        run: |
+          echo "tag=build-$(date +'%Y%m%d-%H%M%S')" \
+            >> "$GITHUB_OUTPUT"
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.release.outputs.tag }}
+          name: OpenWrt ${{ inputs.device }} ${{ steps.release.outputs.tag }}
+          body: |
+            ## OpenWrt Cloud Build
+
+            **设备:** ${{ inputs.device }}
+
+            **路由器名称:** ${{ inputs.hostname }}
+
+            **管理地址:** ${{ inputs.lan_ip }}
+
+            **WAN:** ${{ inputs.wan_port }}
+
+            **Argon:** ${{ inputs.argon }}
+
+            **PassWall:** ${{ inputs.passwall }}
+
+            **Xray:** ${{ inputs.xray }}
+
+            **sing-box:** ${{ inputs.singbox }}
+
+            **OpenClash:** ${{ inputs.openclash }}
+
+            **Mihomo:** ${{ inputs.mihomo }}
+
+            **USB:** ${{ inputs.usb }}
+
+            **WireGuard:** ${{ inputs.wireguard }}
+
+            **OpenVPN:** ${{ inputs.openvpn }}
+
+            ---
+
+            Build automatically by GitHub Actions.
+          files: |
+            lede/release/*
